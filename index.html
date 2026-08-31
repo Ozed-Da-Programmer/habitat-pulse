@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habitat Pulse — Live Ecosystem Health Readings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,560;9..144,650&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #EAE3D2;
+    --paper-warm: #F1EADA;
+    --ink: #22301F;
+    --ink-soft: #57654F;
+    --moss: #45633F;
+    --moss-deep: #2E4429;
+    --ochre: #B07E32;
+    --rust: #9B4430;
+    --line: rgba(34,48,31,0.16);
+    --line-strong: rgba(34,48,31,0.32);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--paper);
+    color: var(--ink);
+    font-family:'Inter', -apple-system, sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap{ max-width: 980px; margin: 0 auto; padding: 0 28px 90px; }
+
+  /* --- Top bar --- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 26px 0 0;
+    max-width: 980px; margin: 0 auto; padding-left:28px; padding-right:28px;
+  }
+  .mark{ display:flex; align-items:center; gap:9px; font-family:'IBM Plex Mono', monospace; font-size:13px; color: var(--moss-deep); }
+  .mark svg{ width:18px; height:18px; }
+  .topbar .built-for{ font-family:'IBM Plex Mono', monospace; font-size:12px; color: var(--ink-soft); }
+
+  /* --- Hero (two column) --- */
+  .hero{
+    display:grid; grid-template-columns: 1.15fr 0.85fr; gap: 40px; align-items:center;
+    padding: 44px 0 20px;
+    opacity: 0; transform: translateY(8px);
+    animation: rise 0.7s cubic-bezier(.2,.7,.2,1) forwards 0.05s;
+  }
+  @keyframes rise{ to{ opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce){ .hero{ animation:none; opacity:1; transform:none; } }
+
+  .kicker{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--moss-deep);
+    letter-spacing: 0.02em;
+    margin-bottom: 14px;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-optical-sizing: auto;
+    font-weight: 610;
+    font-size: clamp(32px, 4.4vw, 50px);
+    line-height: 1.05;
+    margin: 0 0 16px;
+    letter-spacing: -0.01em;
+  }
+  .sub{ max-width: 46ch; color: var(--ink-soft); font-size: 16px; }
+
+  .hero-art{ position:relative; width:100%; aspect-ratio: 1/1; }
+  .hero-art svg{ width:100%; height:100%; }
+  .contour{ fill:none; stroke: var(--moss-deep); }
+  .pulse-dot{ animation: pulse 2.6s ease-in-out infinite; transform-origin: center; }
+  @keyframes pulse{ 0%,100%{ transform:scale(1); opacity:1;} 50%{ transform:scale(1.5); opacity:0.55;} }
+  @media (prefers-reduced-motion: reduce){ .pulse-dot{ animation:none; } }
+
+  /* --- Search --- */
+  .search-row{ display:flex; gap:10px; margin-top:30px; flex-wrap:wrap; }
+  input[type=text]{
+    flex: 1 1 260px;
+    padding: 15px 17px;
+    font-family:'Inter', sans-serif;
+    font-size: 15.5px;
+    border: 1.6px solid var(--ink);
+    background: var(--paper-warm);
+    border-radius: 3px;
+    color: var(--ink);
+  }
+  input[type=text]::placeholder{ color: #8b9284; }
+  input[type=text]:focus{ outline: 2px solid var(--moss); outline-offset: 1px; }
+  button{
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:15px;
+    padding: 15px 24px;
+    background: var(--moss-deep);
+    color: var(--paper-warm);
+    border: none;
+    border-radius: 3px;
+    cursor:pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button:hover{ background: var(--moss); }
+  button:active{ transform: translateY(1px); }
+  button:disabled{ background: #9aa596; cursor:wait; }
+  .hint{ font-size:13px; color: var(--ink-soft); margin-top:10px; }
+
+  #status{ margin-top:20px; font-family:'IBM Plex Mono', monospace; font-size: 13.5px; color: var(--ink-soft); min-height: 18px; }
+  .err{ color: var(--rust); }
+
+  @media (max-width: 740px){
+    .hero{ grid-template-columns: 1fr; }
+    .hero-art{ max-width: 220px; margin: 0 auto; order:-1; }
+    .topbar{ flex-direction:column; align-items:flex-start; gap:6px; }
+  }
+
+  /* --- Score dial --- */
+  #result{ display:none; margin-top: 30px; }
+  .divider{ border:none; border-top: 1.6px solid var(--line-strong); margin: 0 0 34px; }
+  .score-panel{ display:flex; align-items:center; gap:36px; flex-wrap:wrap; padding-bottom: 32px; border-bottom: 1.6px solid var(--line); }
+  .dial-wrap{ position:relative; width:186px; height:186px; flex:none; }
+  .dial-wrap svg{ width:100%; height:100%; }
+  .dial-wrap circle{ transition: stroke-dashoffset 1s cubic-bezier(.2,.7,.2,1), stroke 0.4s ease; }
+  .dial-num{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .dial-num .n{ font-family:'Fraunces', serif; font-weight:610; font-size:48px; line-height:1; }
+  .dial-num .l{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color: var(--ink-soft); margin-top:5px; letter-spacing:0.03em; }
+  .score-meta{ flex:1; min-width:220px; }
+  .score-meta h2{ font-family:'Fraunces', serif; font-weight:610; font-size: 28px; margin: 0 0 8px; }
+  .score-meta .place{ font-family:'IBM Plex Mono', monospace; font-size:13px; color: var(--ink-soft); }
+  .score-meta p{ max-width: 46ch; margin: 14px 0 0; color: var(--ink-soft); font-size:14.5px; }
+
+  /* --- Field notebook cards --- */
+  .fields{ margin-top: 0; display:grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding-top: 32px; }
+  .field{
+    padding: 24px 22px;
+    background: var(--paper-warm);
+    border: 1.4px solid var(--line);
+    border-top: 3px solid var(--field-accent, var(--moss-deep));
+    border-radius: 2px;
+  }
+  .field .icon{ width:21px; height:21px; margin-bottom:14px; display:block; }
+  .field .label{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; color: var(--ink-soft); margin-bottom:8px; }
+  .field .value{ font-family:'Fraunces', serif; font-weight:610; font-size:26px; margin-bottom:8px; }
+  .field .detail{ font-size:13px; color: var(--ink-soft); line-height:1.45; }
+  .field .pts{ font-family:'IBM Plex Mono', monospace; font-size:12px; margin-top:14px; color: var(--ink); padding-top:12px; border-top: 1px solid var(--line); }
+
+  @media (max-width: 740px){ .fields{ grid-template-columns: 1fr; } }
+
+  /* --- Methodology --- */
+  .methodology{ margin-top: 44px; padding-top: 28px; border-top: 1.6px solid var(--line); }
+  .methodology h3{ font-family:'Fraunces', serif; font-weight:610; font-size:19px; margin:0 0 12px; }
+  .methodology p, .methodology li{ color: var(--ink-soft); font-size:14px; }
+  .methodology ul{ padding-left: 20px; margin: 10px 0; }
+  .methodology li{ margin-bottom:6px; }
+
+  footer{ margin-top: 64px; padding-top: 22px; border-top: 1.6px solid var(--line); font-family:'IBM Plex Mono', monospace; font-size:12px; color: var(--ink-soft); }
+  footer a{ color: var(--moss-deep); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="mark">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2C9 6 6 9 6 13a6 6 0 0 0 12 0c0-4-3-7-6-11Z"/></svg>
+    habitat pulse
+  </div>
+  <div class="built-for">hack the habitat, 2026</div>
+</div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div>
+      <div class="kicker">field instrument</div>
+      <h1>Read the pulse of any place on Earth.</h1>
+      <p class="sub">Type a city, park, or coordinate. Habitat Pulse pulls live air quality, a short-term climate trend, and real species-occurrence records into one Habitat Health reading — built from public data, not a guess.</p>
+
+      <div class="search-row">
+        <input type="text" id="locInput" placeholder="e.g. Kilimanjaro, or Portland Oregon, or -1.29,36.82" />
+        <button id="goBtn" onclick="runLookup()">Take reading</button>
+      </div>
+      <div class="hint">Sources: Open‑Meteo (weather &amp; air quality) and GBIF (species records). No sign‑in, no key.</div>
+      <div id="status"></div>
+    </div>
+
+    <div class="hero-art" aria-hidden="true">
+      <svg viewBox="0 0 300 300">
+        <path class="contour" d="M150 30c-55 12-95 55-95 115s45 100 95 108c48-8 92-52 92-108S203 42 150 30Z" stroke-width="1.4" opacity="0.35"/>
+        <path class="contour" d="M150 55c-42 10-73 43-73 90s34 78 73 84c37-6 70-40 70-84s-30-80-70-90Z" stroke-width="1.4" opacity="0.5"/>
+        <path class="contour" d="M150 80c-30 8-52 32-52 65s24 56 52 61c26-5 49-29 49-61s-21-59-49-65Z" stroke-width="1.4" opacity="0.7"/>
+        <path class="contour" d="M150 105c-18 6-31 21-31 40s14 34 31 38c16-4 29-20 29-38s-13-36-29-40Z" stroke-width="1.6" opacity="0.9"/>
+        <circle cx="150" cy="145" r="5" fill="var(--ochre)"/>
+        <circle class="pulse-dot" cx="150" cy="145" r="5" fill="none" stroke="var(--ochre)" stroke-width="1.5"/>
+        <circle cx="98" cy="188" r="3" fill="var(--rust)"/>
+        <circle cx="205" cy="100" r="3" fill="var(--moss-deep)"/>
+        <circle cx="210" cy="200" r="3" fill="var(--moss-deep)"/>
+      </svg>
+    </div>
+  </div>
+
+  <hr class="divider" style="margin-top:8px;">
+
+  <div id="result">
+    <div class="score-panel">
+      <div class="dial-wrap">
+        <svg viewBox="0 0 180 180">
+          <circle cx="90" cy="90" r="80" fill="none" stroke="var(--line)" stroke-width="3"></circle>
+          <circle cx="90" cy="90" r="66" fill="none" stroke="var(--line)" stroke-width="3"></circle>
+          <circle cx="90" cy="90" r="52" fill="none" stroke="var(--line)" stroke-width="3"></circle>
+          <circle id="ringOuter" cx="90" cy="90" r="80" fill="none" stroke-width="4" stroke-linecap="round" transform="rotate(-90 90 90)"></circle>
+          <circle id="ringMid" cx="90" cy="90" r="66" fill="none" stroke-width="4" stroke-linecap="round" transform="rotate(-90 90 90)"></circle>
+          <circle id="ringInner" cx="90" cy="90" r="52" fill="none" stroke-width="4" stroke-linecap="round" transform="rotate(-90 90 90)"></circle>
+        </svg>
+        <div class="dial-num">
+          <div class="n" id="scoreNum">—</div>
+          <div class="l">HABITAT HEALTH</div>
+        </div>
+      </div>
+      <div class="score-meta">
+        <h2 id="scoreVerdict">—</h2>
+        <div class="place" id="placeLine">—</div>
+        <p id="scoreExplain"></p>
+      </div>
+    </div>
+
+    <div class="fields">
+      <div class="field" style="--field-accent: var(--moss-deep);">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--moss-deep)" stroke-width="1.6"><path d="M3 12c3-4 6-4 9 0s6 4 9 0"/><path d="M3 18c3-4 6-4 9 0s6 4 9 0"/></svg>
+        <div class="label">air quality (US AQI)</div>
+        <div class="value" id="aqiValue">—</div>
+        <div class="detail" id="aqiDetail"></div>
+        <div class="pts" id="aqiPts"></div>
+      </div>
+      <div class="field" style="--field-accent: var(--ochre);">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--ochre)" stroke-width="1.6"><path d="M12 2v6M12 16v6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M2 12h6M16 12h6M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/></svg>
+        <div class="label">14‑day climate trend</div>
+        <div class="value" id="climValue">—</div>
+        <div class="detail" id="climDetail"></div>
+        <div class="pts" id="climPts"></div>
+      </div>
+      <div class="field" style="--field-accent: var(--rust);">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="1.6"><path d="M12 2C9 6 6 9 6 13a6 6 0 0 0 12 0c0-4-3-7-6-11Z"/></svg>
+        <div class="label">recorded biodiversity</div>
+        <div class="value" id="bioValue">—</div>
+        <div class="detail" id="bioDetail"></div>
+        <div class="pts" id="bioPts"></div>
+      </div>
+    </div>
+
+    <div class="methodology">
+      <h3>How this reading is built</h3>
+      <ul>
+        <li><strong>Air quality (0–34 pts):</strong> current US AQI from Open‑Meteo, scaled — cleaner air scores higher.</li>
+        <li><strong>Climate trend (0–33 pts):</strong> a linear regression fitted over the last 14 days of daily max temperature. Small day‑to‑day drift scores higher than a steep warming or cooling trend, which signals instability for local species.</li>
+        <li><strong>Biodiversity (0–33 pts):</strong> count of distinct species recorded within 50km on GBIF over the last 10 years (sampled up to 300 occurrence records), plus a flag for any record carrying an IUCN threatened‑species status in that sample.</li>
+      </ul>
+      <p>This is a transparent composite index, not a certified environmental assessment — every number shown is traceable back to its public source.</p>
+    </div>
+  </div>
+
+  <footer>
+    Habitat Pulse — built for Hack the Habitat · Data: <a href="https://open-meteo.com" target="_blank">Open‑Meteo</a> &amp; <a href="https://www.gbif.org" target="_blank">GBIF</a>
+  </footer>
+</div>
+
+<script>
+const statusEl = document.getElementById('status');
+const goBtn = document.getElementById('goBtn');
+
+function setStatus(msg, isErr){
+  statusEl.textContent = msg || '';
+  statusEl.className = isErr ? 'err' : '';
+}
+
+async function geocode(query){
+  const coordMatch = query.trim().match(/^(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)$/);
+  if (coordMatch){
+    return { lat: parseFloat(coordMatch[1]), lon: parseFloat(coordMatch[3]), name: query.trim() };
+  }
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Geocoding lookup failed');
+  const data = await res.json();
+  if (!data.results || !data.results.length) throw new Error('Could not find that place — try a nearby city name or "lat,lng"');
+  const r = data.results[0];
+  return { lat: r.latitude, lon: r.longitude, name: [r.name, r.admin1, r.country].filter(Boolean).join(', ') };
+}
+
+async function fetchAirQuality(lat, lon){
+  const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm2_5`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Air quality data unavailable for this location');
+  const data = await res.json();
+  return data.current;
+}
+
+async function fetchClimateTrend(lat, lon){
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max&past_days=14&forecast_days=1&timezone=auto`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Climate data unavailable for this location');
+  const data = await res.json();
+  const temps = data.daily.temperature_2m_max.filter(t => t !== null);
+  const n = temps.length;
+  const xs = temps.map((_, i) => i);
+  const xMean = xs.reduce((a,b)=>a+b,0)/n;
+  const yMean = temps.reduce((a,b)=>a+b,0)/n;
+  let num = 0, den = 0;
+  for (let i=0;i<n;i++){ num += (xs[i]-xMean)*(temps[i]-yMean); den += (xs[i]-xMean)**2; }
+  const slope = den === 0 ? 0 : num/den;
+  return { slope, latest: temps[temps.length-1], mean: yMean, n };
+}
+
+async function fetchBiodiversity(lat, lon){
+  const url = `https://api.gbif.org/v1/occurrence/search?decimalLatitude=${(lat-0.45).toFixed(3)},${(lat+0.45).toFixed(3)}&decimalLongitude=${(lon-0.45).toFixed(3)},${(lon+0.45).toFixed(3)}&year=2016,2026&limit=300`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Biodiversity data unavailable for this location');
+  const data = await res.json();
+  const results = data.results || [];
+  const speciesSet = new Set();
+  let threatened = 0;
+  results.forEach(r => {
+    if (r.species) speciesSet.add(r.species);
+    if (r.iucnRedListCategory && ['CR','EN','VU'].includes(r.iucnRedListCategory)) threatened++;
+  });
+  return { speciesCount: speciesSet.size, sample: results.length, threatened };
+}
+
+function scoreAQI(aqi){
+  if (aqi == null) return { pts: 17, label: 'no data' };
+  if (aqi <= 50) return { pts: 34, label: 'good' };
+  if (aqi <= 100) return { pts: 26, label: 'moderate' };
+  if (aqi <= 150) return { pts: 17, label: 'unhealthy (sensitive groups)' };
+  if (aqi <= 200) return { pts: 9, label: 'unhealthy' };
+  return { pts: 0, label: 'very unhealthy' };
+}
+
+function scoreClimate(slope){
+  const s = Math.abs(slope);
+  if (s <= 0.15) return { pts: 33, label: 'stable' };
+  if (s <= 0.35) return { pts: 24, label: 'mild drift' };
+  if (s <= 0.6) return { pts: 14, label: 'notable drift' };
+  return { pts: 4, label: 'sharp swing' };
+}
+
+function scoreBio(speciesCount, threatened){
+  let pts;
+  if (speciesCount >= 80) pts = 33;
+  else if (speciesCount >= 40) pts = 26;
+  else if (speciesCount >= 15) pts = 18;
+  else if (speciesCount >= 5) pts = 10;
+  else pts = 3;
+  if (threatened > 0) pts = Math.max(0, pts - Math.min(6, threatened));
+  return { pts };
+}
+
+function verdictFor(total){
+  if (total >= 80) return 'Thriving';
+  if (total >= 60) return 'Stable';
+  if (total >= 40) return 'Under pressure';
+  if (total >= 20) return 'Stressed';
+  return 'Critical';
+}
+
+function colorFor(total){
+  if (total >= 60) return getComputedStyle(document.documentElement).getPropertyValue('--moss-deep');
+  if (total >= 35) return getComputedStyle(document.documentElement).getPropertyValue('--ochre');
+  return getComputedStyle(document.documentElement).getPropertyValue('--rust');
+}
+
+function setRing(el, radius, fraction, color){
+  const c = 2 * Math.PI * radius;
+  el.style.stroke = color;
+  el.style.strokeDasharray = `${c}`;
+  el.style.strokeDashoffset = `${c}`;
+  requestAnimationFrame(()=>{ el.style.strokeDashoffset = `${c * (1 - fraction)}`; });
+}
+
+async function runLookup(){
+  const q = document.getElementById('locInput').value.trim();
+  if (!q){ setStatus('Type a place name or coordinates first.', true); return; }
+  goBtn.disabled = true;
+  document.getElementById('result').style.display = 'none';
+  setStatus('Locating place…');
+
+  try{
+    const place = await geocode(q);
+    setStatus('Pulling live air quality, climate trend, and biodiversity records…');
+
+    const [aq, clim, bio] = await Promise.all([
+      fetchAirQuality(place.lat, place.lon).catch(()=>null),
+      fetchClimateTrend(place.lat, place.lon).catch(()=>null),
+      fetchBiodiversity(place.lat, place.lon).catch(()=>null)
+    ]);
+
+    const aqiScore = scoreAQI(aq ? aq.us_aqi : null);
+    const climScore = clim ? scoreClimate(clim.slope) : { pts: 16, label: 'no data' };
+    const bioScore = bio ? scoreBio(bio.speciesCount, bio.threatened) : { pts: 16 };
+
+    const total = Math.round(aqiScore.pts + climScore.pts + bioScore.pts);
+
+    document.getElementById('placeLine').textContent = `${place.name}  ·  ${place.lat.toFixed(3)}, ${place.lon.toFixed(3)}`;
+    document.getElementById('scoreVerdict').textContent = verdictFor(total);
+    document.getElementById('scoreNum').textContent = total;
+    document.getElementById('scoreExplain').textContent = `Composite of live air quality, a 14‑day temperature trend, and GBIF species records within 50km.`;
+
+    const col = colorFor(total).trim();
+    setRing(document.getElementById('ringOuter'), 80, Math.min(1,aqiScore.pts/34), col);
+    setRing(document.getElementById('ringMid'), 66, Math.min(1,climScore.pts/33), col);
+    setRing(document.getElementById('ringInner'), 52, Math.min(1,bioScore.pts/33), col);
+
+    document.getElementById('aqiValue').textContent = aq ? aq.us_aqi : 'n/a';
+    document.getElementById('aqiDetail').textContent = aq ? `${aqiScore.label} · PM2.5: ${aq.pm2_5} µg/m³` : 'data unavailable for this location';
+    document.getElementById('aqiPts').textContent = `${aqiScore.pts} / 34 pts`;
+
+    document.getElementById('climValue').textContent = clim ? `${clim.slope >= 0 ? '+' : ''}${clim.slope.toFixed(2)}°C/day` : 'n/a';
+    document.getElementById('climDetail').textContent = clim ? `${climScore.label} · latest max ${clim.latest.toFixed(1)}°C over ${clim.n}d` : 'data unavailable';
+    document.getElementById('climPts').textContent = `${climScore.pts} / 33 pts`;
+
+    document.getElementById('bioValue').textContent = bio ? `${bio.speciesCount} species` : 'n/a';
+    document.getElementById('bioDetail').textContent = bio ? `from ${bio.sample} GBIF records within 50km, last 10yrs${bio.threatened ? ` · ${bio.threatened} threatened-status record(s)` : ''}` : 'data unavailable';
+    document.getElementById('bioPts').textContent = `${bioScore.pts} / 33 pts`;
+
+    document.getElementById('result').style.display = 'block';
+    setStatus('');
+  }catch(err){
+    setStatus(err.message || 'Something went wrong fetching live data.', true);
+  }finally{
+    goBtn.disabled = false;
+  }
+}
+
+document.getElementById('locInput').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') runLookup(); });
+</script>
+</body>
+</html>
